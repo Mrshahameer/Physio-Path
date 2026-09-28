@@ -1,5 +1,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#05080f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Physio">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%2305080f%22/%3E%3Cpath d=%22M36 10 18 36h12l-2 18 18-26H34z%22 fill=%22%2322d3ee%22/%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <title>Recovery System — 56 Day Protocol</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -201,6 +207,28 @@ textarea{resize:vertical;min-height:64px}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 @keyframes flashUp{0%{opacity:0;transform:scale(.85)}30%{opacity:1;transform:scale(1.04)}100%{opacity:0;transform:scale(1.15)}}
 .lvup{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;z-index:70;font-family:var(--mono);font-size:34px;letter-spacing:5px;color:var(--cy);text-shadow:0 0 34px var(--glow);animation:flashUp 1.7s ease-out forwards}
+.cloudbtn{position:relative;width:38px;height:38px;flex:0 0 auto;border-radius:10px;border:1px solid var(--line2);background:var(--panel);color:var(--mut);display:grid;place-items:center;cursor:pointer}
+.cloudbtn svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cloudbtn::after{content:"";position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--am)}
+.cloudbtn.on{color:var(--cy);border-color:rgba(34,211,238,.45)}
+.cloudbtn.on::after{background:var(--gr)}
+.lostrow{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:1px;margin-top:6px;color:var(--mut)}
+.lostrow .ok{color:var(--gr)}.lostrow .mid{color:var(--am)}.lostrow .bad{color:var(--rd)}
+.csheet{position:fixed;inset:0;z-index:80;background:rgba(2,5,10,.72);backdrop-filter:blur(4px);display:grid;align-items:end;justify-items:center;padding:16px}
+.csheet[hidden]{display:none}
+.cbox [hidden]{display:none!important}
+.cbox{width:min(560px,100%);max-height:88dvh;overflow-y:auto;background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:18px;display:grid;gap:12px}
+.cbox h3{font-size:17px}
+.cbox .mut{color:var(--mut);font-size:13px}
+.cbox label{display:grid;gap:4px;font-size:12px;color:var(--mut);font-family:var(--mono);letter-spacing:.5px}
+.cbox input{font:inherit;font-size:15px;color:var(--txt);background:var(--bg2);border:1px solid var(--line2);border-radius:9px;padding:10px 12px;width:100%}
+.cbox input:focus{outline:2px solid var(--cy);outline-offset:1px}
+.cbtns{display:flex;gap:8px;flex-wrap:wrap}
+.cbtn{font:inherit;font-size:14px;border-radius:9px;padding:9px 14px;border:1px solid var(--line2);background:transparent;color:var(--txt);cursor:pointer}
+.cbtn.pri{background:var(--cy);color:#04121a;border-color:var(--cy);font-weight:600}
+.cbox pre{font-family:var(--mono);font-size:11px;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:10px;overflow-x:auto;color:var(--mut)}
+.cbox summary{cursor:pointer;font-size:14px}
+#cMsg{font-family:var(--mono);font-size:12px;color:var(--cy)}
 @media(max-width:400px){.seg{grid-template-columns:repeat(3,1fr)}.hmeta .t2{font-size:15px}}
 </style>
 
@@ -216,10 +244,12 @@ textarea{resize:vertical;min-height:64px}
       <div class="t2" id="hDay">Day 1 of 56</div>
     </div>
     <div class="streak" id="hStreak">0 day</div>
+    <button class="cloudbtn" id="cloudBtn" aria-label="Cloud sync"><svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 00.5-7.97A6 6 0 006.1 9.6 4.2 4.2 0 007 18z"/></svg></button>
   </div>
   <div class="xpwrap">
     <div class="xpbar"><div class="xpfill" id="xpFill"></div></div>
     <div class="xplab"><span id="xpL">LVL 1</span><span id="xpR">0 / 120 XP</span></div>
+    <div class="lostrow" id="hLost"></div>
   </div>
 </header>
 
@@ -228,6 +258,45 @@ textarea{resize:vertical;min-height:64px}
 <nav id="nav"></nav>
 </div>
 <div class="toast" id="toast"></div>
+<div class="csheet" id="cSheet" hidden>
+  <div class="cbox" role="dialog" aria-labelledby="cTitle">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 id="cTitle">Cloud sync</h3><button class="cbtn" id="cClose">Close</button></div>
+    <p class="mut">Same login as your hair and face app. Every tick saves to your own Supabase database.</p>
+    <div id="cMsg"></div>
+    <div id="cSetup" style="display:grid;gap:10px">
+      <label>SUPABASE PROJECT URL<input id="cUrl" placeholder="https://abcd1234.supabase.co" autocomplete="off"></label>
+      <label>ANON PUBLIC KEY<input id="cKey" placeholder="eyJhbGciOi..." autocomplete="off"></label>
+      <div class="cbtns"><button class="cbtn pri" id="cSave">Save connection</button></div>
+      <details><summary>Setup SQL (skip if you ran it for the hair app)</summary><pre>-- Run once in Supabase: SQL Editor &gt; New query &gt; paste &gt; Run
+create table if not exists public.tracker_days (
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  app        text not null,
+  day_key    text not null,
+  data       jsonb not null default &#x27;{}&#x27;::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, app, day_key)
+);
+
+alter table public.tracker_days enable row level security;
+
+drop policy if exists &quot;Own rows only&quot; on public.tracker_days;
+create policy &quot;Own rows only&quot; on public.tracker_days
+  for all to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+</pre></details>
+    </div>
+    <div id="cLogin" hidden style="display:grid;gap:10px">
+      <label>EMAIL<input id="cEmail" type="email" autocomplete="email"></label>
+      <label>PASSWORD<input id="cPass" type="password" autocomplete="current-password"></label>
+      <div class="cbtns"><button class="cbtn pri" id="cIn">Sign in</button><button class="cbtn" id="cUp">Create account</button></div>
+    </div>
+    <div id="cUser" hidden style="display:grid;gap:10px">
+      <p>Signed in as <b id="cWho"></b></p>
+      <div class="cbtns"><button class="cbtn pri" id="cSyncNow">Sync now</button><button class="cbtn" id="cOut">Sign out</button><button class="cbtn" id="cEdit">Change project</button></div>
+    </div>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -1114,6 +1183,102 @@ function render(){
 }
 function go(k){if(S.tab===k)return;S.tab=k;document.getElementById("main").scrollTop=0;render();}
 const _r=render; render=function(){S.keepScroll=true;_r();};
+
+/* ==================================================================
+   MISSED XP + CLOUD SYNC (Supabase, shared login with the hair app)
+   ================================================================== */
+function isoOfDay(n){ const a=new Date((S.start||todayISO())+"T00:00"); a.setDate(a.getDate()+n-1); return dISO(a); }
+function paintLost(){
+  if(REVIEW) return;
+  const t=dayNum(); let poss=0, got=0;
+  for(let n=1;n<t;n++){ const iso=isoOfDay(n); if(iso>todayISO()) break; poss+=XPD(n);
+    const L=S.log[iso]; if(L){ const qs=quests(n); L.done.forEach(id=>{const q=qs.find(x=>x.id===id); if(q) got+=q.xp;}); } }
+  const lost=poss-got, sc=poss?Math.round(got/poss*100):100;
+  const el=document.getElementById("hLost"); if(!el) return;
+  el.innerHTML='<span class="'+(sc>=85?"ok":sc>=60?"mid":"bad")+'">Score '+sc+'</span><span class="'+(lost?"bad":"")+'">'+(lost?"-"+lost+" XP missed":"No XP missed")+'</span>';
+}
+const _r3=render; render=function(){ _r3(); paintLost(); };
+
+const APP="physio", CLOUD_KEY="scalplog.cloud";
+let sb=null, sbUser=null, lastPull=0; const snap={}; const pending={}; let pushT=null;
+const $c=id=>document.getElementById(id);
+function cloudCfg(){ try{ const c=JSON.parse(localStorage.getItem(CLOUD_KEY)||"{}"); return {url:c.url||"", key:c.key||""}; }catch(e){ return {url:"",key:""}; } }
+function cMsg(t){ $c("cMsg").textContent=t; }
+function hhmm(){ const d=new Date(); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+function strip(o){ const c={...o}; delete c._ts; return JSON.stringify(c); }
+function stampChanges(){ for(const k in S.log){ const j=strip(S.log[k]); if(snap[k]!==j){ snap[k]=j; S.log[k]._ts=Date.now(); cQueue(k, S.log[k]); } } }
+const _dbset=DB.set.bind(DB);
+DB.set=async function(k,v){ if(k===KEY && !REVIEW && sbUser) stampChanges(); return _dbset(k,v); };
+function cUI(){
+  const c=cloudCfg();
+  $c("cSetup").hidden=!!(c.url&&c.key) && !$c("cSetup").dataset.force;
+  $c("cLogin").hidden=!sb||!!sbUser; $c("cUser").hidden=!sbUser;
+  if(sbUser) $c("cWho").textContent=sbUser.email||"Signed in";
+  $c("cloudBtn").classList.toggle("on", !!sbUser);
+}
+function cRow(k,d){ return {user_id:sbUser.id, app:APP, day_key:k, data:d, updated_at:new Date().toISOString()}; }
+async function cPull(){
+  if(!sb||!sbUser) return; lastPull=Date.now(); cMsg("Syncing...");
+  const {data,error}=await sb.from("tracker_days").select("day_key,data").eq("app",APP);
+  if(error){ cMsg("Sync failed: "+error.message+". Did you run the setup SQL?"); return; }
+  const remote={}; (data||[]).forEach(r=>{remote[r.day_key]=r.data||{};});
+  const push=[];
+  if(remote.meta && remote.meta.start) S.start=remote.meta.start; else push.push(cRow("meta",{start:S.start}));
+  const keys=new Set([...Object.keys(S.log), ...Object.keys(remote).filter(k=>k!=="meta")]);
+  keys.forEach(k=>{ const l=S.log[k], r=remote[k];
+    if(r && (!l || (r._ts||0)>=(l._ts||0))) S.log[k]=r;
+    else if(l && (l.done.length||l.note||l.bp!==null)) { if(!l._ts) l._ts=Date.now(); push.push(cRow(k,l)); } });
+  for(const k in S.log) snap[k]=strip(S.log[k]);
+  await _dbset(KEY,{start:S.start,log:S.log}); render();
+  if(push.length){ const {error:e2}=await sb.from("tracker_days").upsert(push,{onConflict:"user_id,app,day_key"}); if(e2){ cMsg("Upload failed: "+e2.message); return; } }
+  cMsg("Synced at "+hhmm()+".");
+}
+function cQueue(k,d){ if(!sb||!sbUser) return; pending[k]=d; clearTimeout(pushT); pushT=setTimeout(cFlush,800); }
+async function cFlush(){
+  const ks=Object.keys(pending); if(!ks.length||!sbUser) return;
+  const rows=ks.map(k=>cRow(k,pending[k])); ks.forEach(k=>delete pending[k]);
+  const {error}=await sb.from("tracker_days").upsert(rows,{onConflict:"user_id,app,day_key"});
+  if(error){ rows.forEach(r=>{ if(!pending[r.day_key]) pending[r.day_key]=r.data; }); cMsg("Saved on phone. Cloud will retry."); pushT=setTimeout(cFlush,15000); }
+  else cMsg("Synced at "+hhmm()+".");
+}
+function cloudInit(){
+  if(REVIEW){ $c("cloudBtn").hidden=true; return; }
+  for(const k in S.log) snap[k]=strip(S.log[k]);
+  const c=cloudCfg(); $c("cUrl").value=c.url; $c("cKey").value=c.key;
+  if(!c.url||!c.key){ cUI(); cMsg("Not connected yet."); return; }
+  if(!window.supabase){ cUI(); cMsg("Sync library did not load. Check internet."); return; }
+  try{ sb=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"scalplog-auth"}}); }
+  catch(e){ sb=null; cUI(); cMsg("That URL or key does not look right."); return; }
+  sb.auth.getSession().then(({data})=>{ sbUser=data&&data.session?data.session.user:null; cUI(); if(sbUser) cPull(); else cMsg("Sign in to sync."); });
+  sb.auth.onAuthStateChange((_e,s)=>{ const was=sbUser; sbUser=s?s.user:null; cUI(); if(sbUser&&!was) cPull(); });
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&sbUser&&Date.now()-lastPull>20000) cPull(); });
+}
+function cOpen(v){ $c("cSheet").hidden=!v; }
+$c("cloudBtn").onclick=()=>cOpen(true);
+$c("cClose").onclick=()=>cOpen(false);
+$c("cSheet").addEventListener("click",e=>{ if(e.target.id==="cSheet") cOpen(false); });
+$c("cSave").onclick=()=>{
+  const url=$c("cUrl").value.trim().replace(/\/+$/,""), key=$c("cKey").value.trim();
+  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)){ cMsg("URL should look like https://abcd1234.supabase.co"); return; }
+  if(key.length<40){ cMsg("Key looks too short. Copy the full anon public key."); return; }
+  try{ localStorage.setItem(CLOUD_KEY,JSON.stringify({url,key})); }catch(e){}
+  location.reload();
+};
+$c("cEdit").onclick=()=>{ $c("cSetup").dataset.force="1"; $c("cSetup").hidden=false; };
+async function cAuth(kind){
+  if(!sb){ cMsg("Connect Supabase first."); return; }
+  const email=$c("cEmail").value.trim(), password=$c("cPass").value;
+  if(!email||password.length<6){ cMsg("Enter email and a password of 6+ characters."); return; }
+  cMsg(kind==="up"?"Creating account...":"Signing in...");
+  const r=kind==="up"?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
+  if(r.error){ cMsg(r.error.message); return; }
+  if(kind==="up"&&!r.data.session){ cMsg("Account created. Confirm the email, then Sign in."); return; }
+  $c("cPass").value="";
+}
+$c("cIn").onclick=()=>cAuth("in"); $c("cUp").onclick=()=>cAuth("up");
+$c("cOut").onclick=async()=>{ if(sb) await sb.auth.signOut(); sbUser=null; cUI(); cMsg("Signed out. Data stays on this phone."); };
+$c("cSyncNow").onclick=()=>cPull();
+setTimeout(cloudInit,0);
 
 (async function init(){
   const hs=location.hash||"";
