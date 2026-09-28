@@ -1200,7 +1200,7 @@ function paintLost(){
 const _r3=render; render=function(){ _r3(); paintLost(); };
 
 const APP="physio", CLOUD_KEY="scalplog.cloud";
-const SB_URL="", SB_KEY="sb_publishable_fivCuW6W7Jwmg4iKERrZxw_mYKPrCfS";
+const SB_URL="https://ldrdsnbilxpctxscutmv.supabase.co", SB_KEY="";
 function keyProblem(k){
   if(/^sb_secret_/i.test(k)) return "That is the SECRET key. Never use it here. Paste the publishable key.";
   if(/^sb_publishable_/i.test(k)) return k.length<30 ? "That key looks cut off. Copy the full publishable key." : "";
