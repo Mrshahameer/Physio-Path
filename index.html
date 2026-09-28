@@ -217,6 +217,7 @@ textarea{resize:vertical;min-height:64px}
 .csheet{position:fixed;inset:0;z-index:80;background:rgba(2,5,10,.72);backdrop-filter:blur(4px);display:grid;align-items:end;justify-items:center;padding:16px}
 .csheet[hidden]{display:none}
 .cbox [hidden]{display:none!important}
+.src a{color:var(--cy);text-decoration:underline}
 .cbox{width:min(560px,100%);max-height:88dvh;overflow-y:auto;background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:18px;display:grid;gap:12px}
 .cbox h3{font-size:17px}
 .cbox .mut{color:var(--mut);font-size:13px}
@@ -337,7 +338,7 @@ let REVIEW=false;
 const save=()=>REVIEW?null:DB.set(KEY,{start:S.start,log:S.log});
 
 /* ---------- share encoding (no server, data lives in the link) ---------- */
-const QIDS=["tens_am","sess_am","walk1","breaks","tens_pm1","sess_pm","ems","tens_night","protein","sleep","logged","snooker"];
+const QIDS=["tens_am","sess_am","walk1","breaks","tens_pm1","sess_pm","ems","tens_night","protein","sleep","logged","snooker","f_reset"];
 function packLog(){
   const rows=[];
   Object.keys(S.log).sort().forEach(k=>{const L=S.log[k];let m=0;
@@ -379,7 +380,7 @@ function reportText(){
   t+="Day "+d+" of 56 | Week "+weekOf(d)+" | Phase "+phaseOf(d)+" ("+PH[phaseOf(d)].n+")\n";
   t+="Streak: "+streak()+" days\n";
   let tq=0,dq=0;
-  keys.forEach(k=>{tq+=quests(dayNum(k)).length;dq+=S.log[k].done.length;});
+  keys.forEach(k=>{tq+=questsFor(k).length;dq+=S.log[k].done.length;});
   t+="Adherence: "+(tq?Math.round(dq/tq*100):0)+"% of daily tasks completed\n\n";
   t+="BACKGROUND\n";
   t+="Lumbar MRI, SI joint and hip all normal. Left sciatic-type pain, 18 months, intermittent.\n";
@@ -579,24 +580,37 @@ function eveningEx(p){
   if(p===3) return ["squat","split","rdl","pallof","carry","curlup","sideplank","birddog","tensioner"];
   return ["squat","split","rdl","pallof","carry","curlup","sideplank","birddog","tensioner","knee2chest"]; }
 const WALK={1:"3 x 5 min, gentle",2:"3 x 10 min, separate times",3:"3 x 10 min",4:"2 x 20 min",5:"25 to 30 min",6:"30 min",7:"35 min",8:"40 min"};
-function quests(d){
+function quests(d,flare){
   const p=phaseOf(d),w=weekOf(d),q=[];
-  q.push({id:"tens_am",n:"TENS · morning",d:"Placement 1 spine · mode N or M · 20 min",xp:10,ic:"bolt"});
+  if(flare){
+    q.push({id:"f_reset",n:"Flare reset",d:"Prone lying 3 min + 10 press-ups · repeat every 2 to 3 hours",xp:30,ic:"sun"});
+    q.push({id:"walk1",n:"Easy walks",d:"3 x 5 min, flat ground, stop before burning",xp:15,ic:"walk"});
+    q.push({id:"breaks",n:"30-minute stand rule",d:"Stand + 5 press-ups every half hour at the PC",xp:20,ic:"clock"});
+    q.push({id:"tens_night",n:"TENS · deep relief",d:"Nerve path · mode B burst · 30 min",xp:10,ic:"bolt"});
+    q.push({id:"protein",n:"Protein target",d:"100 to 120 g across four meals",xp:15,ic:"food"});
+    q.push({id:"sleep",n:"Sleep setup",d:"Knee pillow · firm surface · 7 to 9 hours",xp:15,ic:"bed"});
+    q.push({id:"logged",n:"Log the day",d:"Pain scores and the furthest point reached",xp:20,ic:"chart"});
+    return q;
+  }
+  if(p<=2) q.push({id:"tens_am",n:"TENS · morning",d:"Placement 1 spine · mode N or M · 20 min",xp:10,ic:"bolt"});
   q.push({id:"sess_am",n:"Morning session",d:morningEx(p).length+" movements · about 20 min",xp:25,ic:"sun"});
-  q.push({id:"walk1",n:"Walk block",d:WALK[w],xp:15,ic:"walk"});
+  q.push({id:"walk1",n:"Walk block",d:WALK[w]+(w>=5?" · goal: 30 min, 5 days a week":""),xp:15,ic:"walk"});
   q.push({id:"breaks",n:"30-minute stand rule",d:"Stand + 5 press-ups every half hour at the PC",xp:20,ic:"clock"});
-  q.push({id:"tens_pm1",n:"TENS · before training",d:"Placement 2 nerve path · mode N or M · 20 min",xp:10,ic:"bolt"});
+  if(p<=3) q.push({id:"tens_pm1",n:"TENS · before training",d:"Placement 2 nerve path · mode N or M · 20 min"+(p===3?" · only if needed":""),xp:10,ic:"bolt"});
   q.push({id:"sess_pm",n:"Evening session",d:eveningEx(p).length+" movements · 25 to 35 min",xp:35,ic:"moon"});
   if(d>=8) q.push({id:"ems",n:"EMS glute activation",d:"15 min · squeeze when the current fires",xp:15,ic:"zap"});
-  q.push({id:"tens_night",n:"TENS · night burst",d:"Placement 2 · mode B burst · 30 min",xp:10,ic:"bolt"});
+  if(p<=2) q.push({id:"tens_night",n:"TENS · night burst",d:"Placement 2 · mode B burst · 30 min",xp:10,ic:"bolt"});
   q.push({id:"protein",n:"Protein target",d:"100 to 120 g across four meals",xp:15,ic:"food"});
   q.push({id:"sleep",n:"Sleep setup",d:"Knee pillow · firm surface · 7 to 9 hours",xp:15,ic:"bed"});
   q.push({id:"logged",n:"Log the day",d:"Pain scores and the furthest point reached",xp:20,ic:"chart"});
   if(p===4) q.push({id:"snooker",n:"Snooker rebuild",d:"Timed session with break rule",xp:20,ic:"target"});
   return q;
 }
+const isFlare=iso=>!!(S.log[iso]&&S.log[iso].flare);
+const questsFor=iso=>quests(dayNum(iso),isFlare(iso));
+const XPDi=iso=>questsFor(iso).reduce((a,b)=>a+b.xp,0);
 const XPD=d=>quests(d).reduce((a,b)=>a+b.xp,0);
-function totalXP(){let t=0;for(const k in S.log){const d=dayNum(k),qs=quests(d);
+function totalXP(){let t=0;for(const k in S.log){const qs=questsFor(k);
   S.log[k].done.forEach(id=>{const q=qs.find(x=>x.id===id);if(q)t+=q.xp;});}return t;}
 const LVL=x=>Math.floor(Math.sqrt(x/60))+1;
 const lvlXP=l=>Math.round(60*(l-1)*(l-1));
@@ -759,8 +773,8 @@ function tog(k){S.exOpen[k]=!S.exOpen[k];render();}
    VIEWS
    ================================================================== */
 function vToday(){
-  const iso=todayISO(),d=dayNum(iso),p=phaseOf(d),L=log(iso),qs=quests(d);
-  const got=qs.filter(q=>L.done.includes(q.id)).reduce((a,b)=>a+b.xp,0),tot=XPD(d);
+  const iso=todayISO(),d=dayNum(iso),p=phaseOf(d),L=log(iso),qs=questsFor(iso);
+  const got=qs.filter(q=>L.done.includes(q.id)).reduce((a,b)=>a+b.xp,0),tot=XPDi(iso);
   const pct=tot?got/tot:0;
   const ic={bolt:"M13 2 4 14h6l-1 8 9-12h-6z",sun:"M12 6a6 6 0 100 12 6 6 0 000-12M12 1v2M12 21v2M4 4l1.5 1.5M18.5 18.5L20 20M1 12h2M21 12h2M4 20l1.5-1.5M18.5 5.5L20 4",
    moon:"M21 13a9 9 0 11-10-10 7 7 0 0010 10z",walk:"M13 4a2 2 0 100-.1M9 20l3-6 3 3v3M6 12l3-4 3 1 3 3",clock:"M12 3a9 9 0 100 18 9 9 0 000-18M12 7v5l3 2",
@@ -778,6 +792,7 @@ function vToday(){
    </div></div></div>`;
   if(!S.start) h+=`<div class="note"><b>Set your start date</b><p class="mut" style="margin:6px 0 9px">The 56 day programme counts from here. Pick today if you are starting now.</p>
    <input type="date" value="${iso}" onchange="setStart(this.value)"></div>`;
+  h+=flareHTML(iso);
   h+=`<div class="sec-h">Daily quests</div>`;
   qs.forEach(q=>{const done=L.done.includes(q.id);
     h+=`<div class="q ${done?'done':''}" onclick="toggleQ('${q.id}')">
@@ -792,10 +807,40 @@ function vToday(){
   h+=`<div class="sec-h">Phase focus</div><div class="card"><h3 style="margin-top:0">Phase ${p} · ${PH[p].n}</h3><p class="mut">${PH[p].d}</p>
    <div class="wk">${[1,2,3,4,5,6,7,8].map(w=>`<div class="wkc ${w<weekOf(d)?'pass':w===weekOf(d)?'now':''}">${w}</div>`).join("")}</div>
    <p class="mut" style="margin:0">${56-d} days remaining.</p></div>`;
+  const pf=PAIN_FACTS[(d-1)%PAIN_FACTS.length];
+  h+=`<div class="note"><b>Pain fact · day ${d}</b><p style="margin:7px 0 4px">${pf[0]}</p><p class="mut" style="margin:0">${pf[1]}</p></div>`;
   h+=`<div class="good"><b>The traffic light rule</b>
    <p class="mut" style="margin:7px 0 0">Pain moving UP toward your back is the win. Pain moving DOWN the leg means stop that exercise today. Up to 4 out of 10 during exercise is fine if it settles within 30 minutes.</p></div>`;
   return h+`</div>`;
 }
+
+const PAIN_FACTS=[
+ ["Pain is an alarm, not a damage meter.","Your MRI is clean. The alarm is set too sensitive. Training turns the sensitivity down."],
+ ["A sensitive nerve needs movement, not rest.","Nerves need blood flow and gliding. Sliders and walking feed the nerve. Long stillness starves it."],
+ ["Hurt does not equal harm.","Up to 4 out of 10 during exercise is safe if it settles within 30 minutes and is no worse the next morning."],
+ ["Flare-ups are normal in recovery.","Most people have them. A flare means drop back for 2 to 3 days, not start again."],
+ ["Pain moving up is winning.","When leg pain retreats toward the buttock or back, the nerve is calming. That is called centralisation."],
+ ["Sleep turns pain volume up or down.","One bad night raises pain sensitivity the next day. Protect 7 to 9 hours like a training session."],
+ ["Fear makes muscles guard.","Guarding tightens the deep hip muscles around the nerve. Calm, confident movement relaxes them."],
+ ["Your spine is strong.","Discs and joints adapt to load like muscle does. Gradual loading makes them tougher, not weaker."],
+ ["Burning is the nerve talking, not breaking.","Burning in the foot after long walks is irritation. Stay just under that point and extend it week by week."],
+ ["Stress feeds pain.","A stressed nervous system amplifies every signal. Walks, breathing and sleep are part of treatment."],
+ ["Consistency beats intensity.","Doing 80 percent of the plan every day beats 100 percent twice a week."],
+ ["Passive treatments open a window.","TENS and heat ease pain for an hour or two. Use that window to train. The training is what heals."],
+ ["Walking is medicine.","In the WalkBack trial, a walking plan nearly doubled the time people stayed free of back pain."],
+ ["You are rebuilding capacity.","The goal is not zero pain today. It is doing more with the same or less pain each week."]
+];
+function flareRun(){let n=0;const d=new Date();for(let i=0;i<30;i++){const iso=dISO(d);if(isFlare(iso))n++;else break;d.setDate(d.getDate()-1);}return n;}
+function flareHTML(iso){
+  if(REVIEW) return "";
+  if(!isFlare(iso)) return `<div style="display:flex;justify-content:flex-end;margin:10px 0 0"><button class="b" onclick="setFlare(true)">Having a flare today?</button></div>`;
+  const run=flareRun();
+  return `<div class="warn"><b>Flare mode · day ${run}</b><p class="mut" style="margin:7px 0 9px">
+   Today's quests switched to the calm-down plan. No evening training, no EMS, no tensioners. Short walks and extension resets every 2 to 3 hours. Most flares settle in 2 to 3 days.</p>
+   ${run>=3?`<p style="margin:0 0 9px;color:var(--rd)"><b>3 flare days in a row.</b> Book your physio this week. See the stop rules in the Plan tab.</p>`:""}
+   <button class="b p" onclick="setFlare(false)">Flare is over</button></div>`;
+}
+function setFlare(v){ if(REVIEW) return; const L=log(todayISO()); L.flare=!!v; save(); render(); toast(v?"FLARE MODE ON":"BACK TO THE PLAN"); }
 
 function vTrain(){
   const d=dayNum(),p=phaseOf(d);
@@ -825,6 +870,9 @@ function setF(n){S.filter=n;S.exOpen={};render();}
 function vDevice(){
   const pl=PADS[S.place],M=MODES[S.mode];
   let h=`<div class="view"><h2>TENS and EMS</h2><p class="mut">Cofystim EV-806 dual · 4 electrodes · 2 channels</p>`;
+  h+=`<div class="note"><b>What TENS can and cannot do</b><p class="mut" style="margin:7px 0 0">
+   Research shows TENS gives short-term relief for some people but does not fix sciatica. UK NICE guidance does not recommend it as a treatment.
+   So use it as a window opener before training or walking. The plan cuts it down each phase: 3 a day in Phase 1 and 2, once before training in Phase 3, only when needed in Phase 4.</p></div>`;
   h+=`<div class="sec-h">1 · Pad placement</div><div class="pills">`+
    Object.keys(PADS).map(k=>`<div class="pill ${S.place===k?'on':''}" onclick="setP('${k}')">${PADS[k].n.split("·")[1].trim()}</div>`).join("")+`</div>`;
   h+=`<div class="card"><div class="ttl">${pl.n}</div>
@@ -903,6 +951,27 @@ function vPlan(){
    <p><b>Nothing is damaged.</b> You are not protecting a broken structure. Your spine is safe to load.</p>
    <p><b>The pain is soft tissue and nerve sensitivity, not compression.</b> The nerve is most likely irritated where it passes through the deep gluteal muscles, on top of a nervous system that turned touchy after 18 months of on-off pain.</p>
    <p class="mut" style="margin-bottom:0">Cases like this respond well to loading, movement and desensitisation. They respond badly to rest, fear and endless stretching of an already angry nerve. Your main mistake so far was stopping things rather than rebuilding capacity.</p></div>`;
+  h+=`<div class="sec-h">What the research says · 2026 check</div><div class="card src"><table class="kv lft">
+   <tr><td>Exercise</td><td>First-line treatment. Core endurance, hip strength and graded loading are backed by guidelines.</td></tr>
+   <tr><td>Walking</td><td>Strongly supported. The 2024 WalkBack trial nearly doubled pain-free time (208 vs 112 days).</td></tr>
+   <tr><td>Nerve sliders</td><td>Neural mobilisation reduces leg pain and disability in reviews. Sliders before tensioners.</td></tr>
+   <tr><td>Pain education</td><td>Understanding pain lowers fear and improves results when combined with exercise.</td></tr>
+   <tr><td>TENS</td><td>Short-term comfort only. Not recommended as a treatment. Taper it.</td></tr>
+   <tr><td>Pregabalin</td><td>No better than placebo for sciatica in a major 2017 trial. Ask your doctor about it.</td></tr>
+   <tr><td>Belts, corsets</td><td>Not recommended. They weaken the muscles you are building.</td></tr></table>
+   <p class="mut" style="margin:11px 0 6px">Sources</p>
+   <ul class="cues">
+    <li><a href="https://www.ncbi.nlm.nih.gov/books/NBK562933/" target="_blank" rel="noopener">NICE NG59 · Low back pain and sciatica</a></li>
+    <li><a href="https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(24)00755-4/fulltext" target="_blank" rel="noopener">WalkBack trial · The Lancet 2024</a></li>
+    <li><a href="https://www.nejm.org/doi/full/10.1056/NEJMoa1614292" target="_blank" rel="noopener">Pregabalin for sciatica · NEJM 2017</a></li>
+    <li><a href="https://www.jospt.org/doi/10.2519/jospt.2017.7117" target="_blank" rel="noopener">Neural mobilisation meta-analysis · JOSPT 2017</a></li>
+    <li><a href="https://evidence.nihr.ac.uk/alert/two-nerve-drugs-are-not-suitable-for-treating-long-term-low-back-pain/" target="_blank" rel="noopener">NIHR · Nerve drugs and back pain</a></li>
+   </ul></div>`;
+  h+=`<div class="sec-h">Flare-up plan</div><div class="card"><table class="kv lft">
+   <tr><td>Day 1 to 3</td><td>Tap "Having a flare today?" on the Today tab. Resets every 2 to 3 hours, short walks, deep relief TENS at night.</td></tr>
+   <tr><td>Day 4</td><td>Back to the plan, one phase lower, for 3 days.</td></tr>
+   <tr><td>Day 7</td><td>Back to your current phase if the leg is no worse in the morning.</td></tr>
+   <tr><td>Still bad</td><td>3 flare days in a row, or pain moving further down: book your physio.</td></tr></table></div>`;
   h+=`<div class="warn"><b>Stop and book an appointment if</b><ul class="cues" style="margin-top:8px">
    <li>Pain travels further down the leg and stays for more than three days</li>
    <li>New weakness in the foot or ankle</li>
@@ -943,6 +1012,8 @@ function vLife(){
   <div class="card"><div class="ttl">Getting out of bed</div>
    <div class="stage" style="margin-bottom:10px">${figSVG("bridge",150)}</div>
    <p class="mut" style="margin:0">Roll onto your side, drop the legs off the edge, push up with the arms. Never sit straight up from flat. That is peak flexion load first thing in the morning when the discs are most hydrated and stiff.</p></div>`;
+  h+=`<div class="card"><div class="ttl">Morning stiffness</div><p class="mut" style="margin:0">
+   A hot water bottle or warm towel on the low back for 15 minutes before the morning session loosens things up. Wrap it in cloth. Never sleep on it.</p></div>`;
   h+=`<div class="sec-h">Food</div>
   <div class="card"><p>At 5'10" and 60 to 64 kg you are underweight for your frame, and this programme is asking you to build muscle.</p>
    <div class="grid2" style="margin:12px 0">
@@ -966,9 +1037,13 @@ function vLife(){
    <tr><td>Myolax 4 mg</td><td>Muscle relaxant · spasm</td></tr>
    <tr><td>Calcon D</td><td>Calcium and vitamin D</td></tr>
    <tr><td>New D Injection</td><td>Vitamin D</td></tr></table></div>
+  <div class="note src"><b>What the research says about these</b><ul class="cues" style="margin-top:8px">
+   <li><b>Gabafil (pregabalin).</b> A 2017 trial in the NEJM found it no better than placebo for sciatica, with more dizziness. UK NICE advises against it for sciatica.</li>
+   <li><b>Miracox (etoricoxib).</b> NICE warns of limited benefit and real risks with anti-inflammatories in sciatica. Best as a short course.</li>
+   <li>Do not stop pregabalin suddenly. Stopping needs a slow taper your doctor plans.</li></ul></div>
   <div class="note"><b>Three questions for your doctor</b><ul class="cues" style="margin-top:8px">
    <li>How long should I stay on Miracox 90? Daily anti-inflammatories are usually a short course and often paired with a stomach protector.</li>
-   <li>What is the plan for the Gabafil? It should not be stopped suddenly. It needs a taper.</li>
+   <li>Given the trial evidence, do I still need the Gabafil? If not, how do we taper it safely?</li>
    <li>Does the Myolax continue now that the spasm has settled?</li></ul>
    <p class="mut" style="margin:9px 0 0">Do not change any dose on your own. Just ask.</p></div>
   <div class="note"><b>One test worth requesting</b><p class="mut" style="margin:7px 0 0">
@@ -1027,7 +1102,7 @@ function vLog(){
     <button class="b" onclick="copyTxt(reportText())">Copy text report</button></div>
    <p class="mut" style="margin:12px 0 0;font-size:12.6px">The text report is plain text. Paste it straight into WhatsApp if he just wants the numbers.</p></div>`;
   h+=`<div style="height:12px"></div><div class="card"><div class="ttl">Data</div>
-   <p class="mut" style="margin-bottom:11px">${keys.length} day${keys.length===1?"":"s"} recorded. Everything is stored on this device only.</p>
+   <p class="mut" style="margin-bottom:11px">${keys.length} day${keys.length===1?"":"s"} recorded. Saved on this phone, and synced to your cloud account when you are signed in.</p>
    <div class="btns"><button class="b" onclick="exportData()">Export JSON</button>
    <button class="b r" onclick="wipe()">Reset all</button></div></div>`;
   return h+`</div>`;
@@ -1070,7 +1145,7 @@ function chartsHTML(){
 function vReview(){
   const d=dayNum(),p=phaseOf(d),keys=Object.keys(S.log).sort();
   const FAR=["None","Buttock","Thigh","Calf","Foot"],FC=["#22c55e","#f59e0b","#f97316","#f43f5e","#a855f7"];
-  let tq=0,dq=0;keys.forEach(k=>{tq+=quests(dayNum(k)).length;dq+=S.log[k].done.length;});
+  let tq=0,dq=0;keys.forEach(k=>{tq+=questsFor(k).length;dq+=S.log[k].done.length;});
   const ad=tq?Math.round(dq/tq*100):0;
   let h=`<div class="view"><h2>Patient snapshot</h2>
   <p class="mut">Shared read-only view. Nothing here writes back to his device.</p>
@@ -1126,7 +1201,7 @@ function toggleQ(id){
   const iso=todayISO(),L=log(iso),before=LVL(totalXP());
   const i=L.done.indexOf(id);
   if(i>-1)L.done.splice(i,1); else {L.done.push(id);
-    const q=quests(dayNum()).find(x=>x.id===id); if(q)toast("+"+q.xp+" XP · "+q.n.toUpperCase());}
+    const q=questsFor(todayISO()).find(x=>x.id===id); if(q)toast("+"+q.xp+" XP · "+q.n.toUpperCase());}
   save();render();
   const after=LVL(totalXP()); if(after>before)levelUp(after);
 }
@@ -1191,8 +1266,8 @@ function isoOfDay(n){ const a=new Date((S.start||todayISO())+"T00:00"); a.setDat
 function paintLost(){
   if(REVIEW) return;
   const t=dayNum(); let poss=0, got=0;
-  for(let n=1;n<t;n++){ const iso=isoOfDay(n); if(iso>todayISO()) break; poss+=XPD(n);
-    const L=S.log[iso]; if(L){ const qs=quests(n); L.done.forEach(id=>{const q=qs.find(x=>x.id===id); if(q) got+=q.xp;}); } }
+  for(let n=1;n<t;n++){ const iso=isoOfDay(n); if(iso>todayISO()) break; poss+=XPDi(iso);
+    const L=S.log[iso]; if(L){ const qs=questsFor(iso); L.done.forEach(id=>{const q=qs.find(x=>x.id===id); if(q) got+=q.xp;}); } }
   const lost=poss-got, sc=poss?Math.round(got/poss*100):100;
   const el=document.getElementById("hLost"); if(!el) return;
   el.innerHTML='<span class="'+(sc>=85?"ok":sc>=60?"mid":"bad")+'">Score '+sc+'</span><span class="'+(lost?"bad":"")+'">'+(lost?"-"+lost+" XP missed":"No XP missed")+'</span>';
