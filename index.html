@@ -290,7 +290,7 @@ create policy &quot;Own rows only&quot; on public.tracker_days
     <div id="cLogin" hidden style="display:grid;gap:10px">
       <label>EMAIL<input id="cEmail" type="email" autocomplete="email"></label>
       <label>PASSWORD<input id="cPass" type="password" autocomplete="current-password"></label>
-      <div class="cbtns"><button class="cbtn pri" id="cIn">Sign in</button><button class="cbtn" id="cUp">Create account</button></div>
+      <div class="cbtns"><button class="cbtn pri" id="cIn">Sign in</button><button class="cbtn" id="cUp">Create account</button><button class="cbtn" id="cResend">Resend email</button></div>
     </div>
     <div id="cUser" hidden style="display:grid;gap:10px">
       <p>Signed in as <b id="cWho"></b></p>
@@ -1324,7 +1324,14 @@ async function cFlush(){
   if(error){ rows.forEach(r=>{ if(!pending[r.day_key]) pending[r.day_key]=r.data; }); cMsg("Saved on phone. Cloud will retry."); pushT=setTimeout(cFlush,15000); }
   else cMsg("Synced at "+hhmm()+".");
 }
+function authHashError(){
+  const h=new URLSearchParams((location.hash||"").replace(/^#/,"")), q=new URLSearchParams(location.search);
+  const e=h.get("error_description")||q.get("error_description"); if(!e) return "";
+  history.replaceState(null,"",location.pathname);
+  return /expired|invalid/i.test(e)?"That confirmation link expired or was already used. Try Sign in. If it says not confirmed, tap Resend email.":e.replace(/\+/g," ");
+}
 function cloudInit(){
+  const hashErr=authHashError(); if(hashErr) setTimeout(()=>cOpen(true),300);
   if(REVIEW){ $c("cloudBtn").hidden=true; return; }
   for(const k in S.log) snap[k]=strip(S.log[k]);
   const c=cloudCfg(); $c("cUrl").value=c.url; $c("cKey").value=c.key;
@@ -1332,7 +1339,7 @@ function cloudInit(){
   if(!window.supabase){ cUI(); cMsg("Sync library did not load. Check internet."); return; }
   try{ sb=window.supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"scalplog-auth"}}); }
   catch(e){ sb=null; cUI(); cMsg("That URL or key does not look right."); return; }
-  sb.auth.getSession().then(({data})=>{ sbUser=data&&data.session?data.session.user:null; cUI(); if(sbUser) cPull(); else cMsg("Sign in to sync."); });
+  sb.auth.getSession().then(({data})=>{ sbUser=data&&data.session?data.session.user:null; cUI(); if(sbUser){ cPull(); if(/access_token|type=signup/.test(location.hash)) history.replaceState(null,"",location.pathname); } else cMsg(hashErr||"Sign in to sync."); });
   sb.auth.onAuthStateChange((_e,s)=>{ const was=sbUser; sbUser=s?s.user:null; cUI(); if(sbUser&&!was) cPull(); });
   document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&sbUser&&Date.now()-lastPull>20000) cPull(); });
 }
@@ -1353,11 +1360,13 @@ async function cAuth(kind){
   const email=$c("cEmail").value.trim(), password=$c("cPass").value;
   if(!email||password.length<6){ cMsg("Enter email and a password of 6+ characters."); return; }
   cMsg(kind==="up"?"Creating account...":"Signing in...");
-  const r=kind==="up"?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
-  if(r.error){ cMsg(r.error.message); return; }
+  const r=kind==="up"?await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}}):await sb.auth.signInWithPassword({email,password});
+  if(r.error){ cMsg(/not confirmed/i.test(r.error.message)?"Email not confirmed yet. Tap Resend email, then open the newest link.":r.error.message); return; }
   if(kind==="up"&&!r.data.session){ cMsg("Account created. Confirm the email, then Sign in."); return; }
   $c("cPass").value="";
 }
+$c("cResend").onclick=async()=>{ if(!sb){cMsg("Connect Supabase first.");return;} const email=$c("cEmail").value.trim(); if(!email){cMsg("Type your email first.");return;}
+  const r=await sb.auth.resend({type:"signup",email,options:{emailRedirectTo:location.origin+location.pathname}}); cMsg(r.error?r.error.message:"Sent. Open only the newest email, and tap the link once."); };
 $c("cIn").onclick=()=>cAuth("in"); $c("cUp").onclick=()=>cAuth("up");
 $c("cOut").onclick=async()=>{ if(sb) await sb.auth.signOut(); sbUser=null; cUI(); cMsg("Signed out. Data stays on this phone."); };
 $c("cSyncNow").onclick=()=>cPull();
